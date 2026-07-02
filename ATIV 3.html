@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard DETRAN-PR - Arrecadação de Multas</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-card h3 {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-card .value {
+            font-size: 1.8em;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-card.total {
+            border-left-color: #10b981;
+        }
+
+        .stat-card.total .value {
+            color: #10b981;
+        }
+
+        .stat-card.deductions {
+            border-left-color: #f59e0b;
+        }
+
+        .stat-card.deductions .value {
+            color: #f59e0b;
+        }
+
+        .stat-card.credits {
+            border-left-color: #3b82f6;
+        }
+
+        .stat-card.credits .value {
+            color: #3b82f6;
+        }
+
+        .stat-card.transfer {
+            border-left-color: #8b5cf6;
+        }
+
+        .stat-card.transfer .value {
+            color: #8b5cf6;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 30px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-container h2 {
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 1.3em;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+        }
+
+        .table-container {
+            grid-column: 1 / -1;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
+        }
+
+        .table-container h2 {
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 1.3em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95em;
+        }
+
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #fafafa;
+        }
+
+        .currency {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .message {
+            padding: 15px 30px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        .message.show {
+            display: block;
+        }
+
+        .message.success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+
+        .message.error {
+            background: #fee2e2;
+            color: #7f1d1d;
+            border-left: 4px solid #ef4444;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-content h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .modal-content p {
+            margin-bottom: 20px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .export-options {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 1024px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #666;
+            font-size: 0.9em;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Dashboard DETRAN-PR</h1>
+            <p>Análise de Arrecadação de Multas - 2017</p>
+        </div>
+
+        <div id="message" class="message"></div>
+
+        <div class="controls" style="display: none;">
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" />
+                <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                    📁 Importar Arquivo
+                </button>
+            </div>
+            <button class="btn btn-secondary" onclick="resetData()">🔄 Limpar Dados</button>
+            <div class="export-options">
+                <button class="btn btn-secondary" onclick="exportToCSV()">📥 Exportar CSV</button>
+                <button class="btn btn-secondary" onclick="exportToJSON()">📥 Exportar JSON</button>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processando arquivo...</p>
+        </div>
+
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card total">
+                <h3>Total Arrecadado</h3>
+                <div class="value" id="totalValue">R$ 0,00</div>
+            </div>
+            <div class="stat-card deductions">
+                <h3>Total Deduções</h3>
+                <div class="value" id="deductionsValue">R$ 0,00</div>
+            </div>
+            <div class="stat-card credits">
+                <h3>Total Créditos</h3>
+                <div class="value" id="creditsValue">R$ 0,00</div>
+            </div>
+            <div class="stat-card transfer">
+                <h3>Total a Repassar</h3>
+                <div class="value" id="transferValue">R$ 0,00</div>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="chart-container">
+                <h2>Arrecadação por Mês</h2>
+                <div class="chart-wrapper">
+                    <canvas id="chartArrecadacao"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h2>Comparativo: Arrecadação vs Repasse</h2>
+                <div class="chart-wrapper">
+                    <canvas id="chartComparativo"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h2>Distribuição de Deduções e Créditos</h2>
+                <div class="chart-wrapper">
+                    <canvas id="chartDistribuicao"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h2>Percentual de Repasse</h2>
+                <div class="chart-wrapper">
+                    <canvas id="chartPercentual"></canvas>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <h2>Dados Detalhados</h2>
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>Mês/Ano</th>
+                            <th>Arrecadado</th>
+                            <th>Deduções</th>
+                            <th>Créditos</th>
+                            <th>A Repassar</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Dashboard para atividade prática 3</p>
+        </div>
+    </div>
+
+    <script>
+        let chartInstances = {};
+        let currentData = [];
+
+        
+        const initialData = [
+            { mes: 'JANEIRO', arrecadado: 5331026.87, deducoes: 19914.72, creditos: 0.00, repasse: 5311112.15 },
+            { mes: 'FEVEREIRO', arrecadado: 4077005.00, deducoes: 26599.85, creditos: 848.84, repasse: 4051253.99 },
+            { mes: 'MARÇO', arrecadado: 5448754.12, deducoes: 10510.28, creditos: 1732.36, repasse: 5439976.20 },
+            { mes: 'ABRIL', arrecadado: 4397362.30, deducoes: 11192.99, creditos: 872.85, repasse: 4387042.16 },
+            { mes: 'MAIO', arrecadado: 5522909.17, deducoes: 1987.59, creditos: 0.00, repasse: 5520921.58 },
+            { mes: 'JUNHO', arrecadado: 5045998.76, deducoes: 9063.96, creditos: 1840.29, repasse: 5038775.09 },
+            { mes: 'JULHO', arrecadado: 5172690.16, deducoes: 4077.18, creditos: 1819.71, repasse: 5170432.69 },
+            { mes: 'AGOSTO', arrecadado: 7259614.68, deducoes: 1904.90, creditos: 0.00, repasse: 7257709.78 },
+            { mes: 'SETEMBRO', arrecadado: 7422945.03, deducoes: 229.84, creditos: 0.00, repasse: 7422715.19 },
+            { mes: 'OUTUBRO', arrecadado: 7693754.14, deducoes: 957.70, creditos: 0.00, repasse: 7692796.44 },
+            { mes: 'NOVEMBRO', arrecadado: 7416704.73, deducoes: 2944850.72, creditos: 0.00, repasse: 4471854.01 },
+            { mes: 'DEZEMBRO', arrecadado: 8377830.66, deducoes: 2611422.03, creditos: 0.00, repasse: 5766408.63 }
+        ];
+
+        
+        currentData = [...initialData];
+        updateDashboard();
+
+        
+        document.getElementById('fileInput').addEventListener('change', handleFileImport);
+
+        function handleFileImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showLoading(true);
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    
+                    const processedData = jsonData
+                        .filter(row => row['Mês/Ano'] && row['Mês/Ano'].trim() !== 'TOTAL')
+                        .map(row => ({
+                            mes: row['Mês/Ano'].trim(),
+                            arrecadado: parseFloat(row['Valores arrecadados pelo DETRAN/PR'].toString().replace(/[^\d,-]/g, '').replace('.', '').replace(',', '.')) || 0,
+                            deducoes: parseFloat(row['Deduções'].toString().replace(/[^\d,-]/g, '').replace('.', '').replace(',', '.')) || 0,
+                            creditos: parseFloat(row['Créditos'].toString().replace(/[^\d,-]/g, '').replace('.', '').replace(',', '.')) || 0,
+                            repasse: parseFloat(row['Valores a Repassar ao FUNRESTRAN'].toString().replace(/[^\d,-]/g, '').replace('.', '').replace(',', '.')) || 0
+                        }));
+
+                    if (processedData.length > 0) {
+                        currentData = processedData;
+                        updateDashboard();
+                        showMessage('Arquivo importado com sucesso!', 'success');
+                    } else {
+                        showMessage('Nenhum dado válido encontrado no arquivo.', 'error');
+                    }
+                } catch (error) {
+                    console.error('Erro ao processar arquivo:', error);
+                    showMessage('Erro ao processar o arquivo. Verifique o formato.', 'error');
+                }
+                showLoading(false);
+                event.target.value = '';
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function updateDashboard() {
+            updateStats();
+            updateCharts();
+            updateTable();
+        }
+
+        function updateStats() {
+            const total = currentData.reduce((sum, row) => sum + row.arrecadado, 0);
+            const deductions = currentData.reduce((sum, row) => sum + row.deducoes, 0);
+            const credits = currentData.reduce((sum, row) => sum + row.creditos, 0);
+            const transfer = currentData.reduce((sum, row) => sum + row.repasse, 0);
+
+            document.getElementById('totalValue').textContent = formatCurrency(total);
+            document.getElementById('deductionsValue').textContent = formatCurrency(deductions);
+            document.getElementById('creditsValue').textContent = formatCurrency(credits);
+            document.getElementById('transferValue').textContent = formatCurrency(transfer);
+        }
+
+        function updateCharts() {
+            const meses = currentData.map(d => d.mes.substring(0, 3));
+            const arrecadado = currentData.map(d => d.arrecadado);
+            const deducoes = currentData.map(d => d.deducoes);
+            const creditos = currentData.map(d => d.creditos);
+            const repasse = currentData.map(d => d.repasse);
+
+            
+            createOrUpdateChart('chartArrecadacao', {
+                type: 'bar',
+                data: {
+                    labels: meses,
+                    datasets: [{
+                        label: 'Arrecadado (R$)',
+                        data: arrecadado,
+                        backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 2,
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return 'R$ ' + (value / 1000000).toFixed(1) + 'M';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            
+            createOrUpdateChart('chartComparativo', {
+                type: 'line',
+                data: {
+                    labels: meses,
+                    datasets: [
+                        {
+                            label: 'Arrecadado',
+                            data: arrecadado,
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 5,
+                            pointBackgroundColor: '#667eea'
+                        },
+                        {
+                            label: 'A Repassar',
+                            data: repasse,
+                            borderColor: '#8b5cf6',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 5,
+                            pointBackgroundColor: '#8b5cf6'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return 'R$ ' + (value / 1000000).toFixed(1) + 'M';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            
+            createOrUpdateChart('chartDistribuicao', {
+                type: 'bar',
+                data: {
+                    labels: meses,
+                    datasets: [
+                        {
+                            label: 'Deduções',
+                            data: deducoes,
+                            backgroundColor: 'rgba(245, 158, 11, 0.7)',
+                            borderColor: 'rgba(245, 158, 11, 1)',
+                            borderWidth: 2,
+                            borderRadius: 5
+                        },
+                        {
+                            label: 'Créditos',
+                            data: creditos,
+                            backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 2,
+                            borderRadius: 5
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            stacked: false
+                        }
+                    }
+                }
+            });
+
+            
+            const percentuais = currentData.map(d => (d.repasse / d.arrecadado * 100).toFixed(2));
+            createOrUpdateChart('chartPercentual', {
+                type: 'bar',
+                data: {
+                    labels: meses,
+                    datasets: [{
+                        label: 'Percentual de Repasse (%)',
+                        data: percentuais,
+                        backgroundColor: percentuais.map(p => p >= 95 ? 'rgba(16, 185, 129, 0.7)' : p >= 80 ? 'rgba(245, 158, 11, 0.7)' : 'rgba(239, 68, 68, 0.7)'),
+                        borderColor: percentuais.map(p => p >= 95 ? 'rgba(16, 185, 129, 1)' : p >= 80 ? 'rgba(245, 158, 11, 1)' : 'rgba(239, 68, 68, 1)'),
+                        borderWidth: 2,
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createOrUpdateChart(canvasId, config) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            
+            if (chartInstances[canvasId]) {
+                chartInstances[canvasId].destroy();
+            }
+            
+            chartInstances[canvasId] = new Chart(ctx, config);
+        }
+
+        function updateTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            currentData.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${row.mes}</strong></td>
+                    <td class="currency">${formatCurrency(row.arrecadado)}</td>
+                    <td class="currency">${formatCurrency(row.deducoes)}</td>
+                    <td class="currency">${formatCurrency(row.creditos)}</td>
+                    <td class="currency">${formatCurrency(row.repasse)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            }).format(value);
+        }
+
+        function resetData() {
+            if (confirm('Tem certeza que deseja limpar todos os dados e retornar aos dados iniciais?')) {
+                currentData = [...initialData];
+                updateDashboard();
+                showMessage('Dados resetados para os valores iniciais.', 'success');
+            }
+        }
+
+        function exportToCSV() {
+            let csv = 'Mês/Ano,Arrecadado,Deduções,Créditos,A Repassar\n';
+            
+            currentData.forEach(row => {
+                csv += `${row.mes},${row.arrecadado},${row.deducoes},${row.creditos},${row.repasse}\n`;
+            });
+
+            downloadFile(csv, 'dados_detran.csv', 'text/csv');
+            showMessage('Dados exportados em CSV com sucesso!', 'success');
+        }
+
+        function exportToJSON() {
+            const json = JSON.stringify(currentData, null, 2);
+            downloadFile(json, 'dados_detran.json', 'application/json');
+            showMessage('Dados exportados em JSON com sucesso!', 'success');
+        }
+
+        function downloadFile(content, filename, type) {
+            const blob = new Blob([content], { type: type });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+
+        function showMessage(text, type) {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = text;
+            messageEl.className = `message show ${type}`;
+            
+            setTimeout(() => {
+                messageEl.classList.remove('show');
+            }, 4000);
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('show', show);
+        }
+    </script>
+</body>
+</html>
